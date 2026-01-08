@@ -174,5 +174,4 @@ cython_debug/
 .pypirc
 
 # DSF candidate cache and statement files
-dsf-candidates-*.md
-*-20*.md
+statements/

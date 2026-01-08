@@ -24,7 +24,7 @@ from rich import print
 OPENAI_API_KEY: str = env.str("OPENAI_API_KEY")
 OPENAI_MODEL_NAME: str = env.str("OPENAI_MODEL_NAME", default="gpt-5-mini")
 
-OUTPUT_DIR: Path = Path(__file__).parent
+OUTPUT_DIR: Path = Path(__file__).parent / "statements"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # DSF Board Candidate statements URLs by year
