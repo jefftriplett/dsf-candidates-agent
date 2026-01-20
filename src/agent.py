@@ -18,8 +18,9 @@ from pathlib import Path
 from pydantic import BaseModel
 from pydantic import Field
 from pydantic_ai import Agent
-from rich import print
+from rich.console import Console
 
+console = Console()
 
 OPENAI_API_KEY: str = env.str("OPENAI_API_KEY")
 OPENAI_MODEL_NAME: str = env.str("OPENAI_MODEL_NAME", default="gpt-5-mini")
@@ -112,15 +113,19 @@ def slugify(text: str) -> str:
     return text.lower().replace(" ", "-")
 
 
-def main(
+app = typer.Typer(help="DSF Candidates Agent - Look up DSF Board candidate statements")
+
+
+@app.command()
+def ask(
     year: int = typer.Argument(..., help="Election year (e.g., 2025)"),
     candidate: str = typer.Argument(..., help="Candidate name to look up"),
     save: bool = typer.Option(True, "--save/--no-save", help="Save statement to disk"),
 ):
     """Look up a DSF Board candidate's statement by year and name."""
     if year not in CANDIDATE_URLS:
-        print(f"[red]No candidate data for year {year}.[/red]")
-        print(f"[yellow]Available years:[/yellow] {', '.join(map(str, sorted(CANDIDATE_URLS.keys())))}")
+        console.print(f"[red]No candidate data for year {year}.[/red]")
+        console.print(f"[yellow]Available years:[/yellow] {', '.join(map(str, sorted(CANDIDATE_URLS.keys())))}")
         raise typer.Exit(1)
 
     agent = get_dsf_candidates_agent(year)
@@ -128,16 +133,39 @@ def main(
     result = agent.run_sync(f"Find the candidate statement for: {candidate}")
 
     if result.output.found:
-        print(f"[green][bold]{result.output.candidate_name}[/bold][/green] ({year} DSF Board Election)\n")
-        print(result.output.statement)
+        console.print(f"[green][bold]{result.output.candidate_name}[/bold][/green] ({year} DSF Board Election)\n")
+        console.print(result.output.statement)
 
         if save:
             filename = OUTPUT_DIR / f"{slugify(result.output.candidate_name)}-{year}.md"
             filename.write_text(f"# {result.output.candidate_name} ({year})\n\n{result.output.statement}\n")
-            print(f"\n[dim]Saved to {filename}[/dim]")
+            console.print(f"\n[dim]Saved to {filename}[/dim]")
     else:
-        print(f"[red]Candidate '{candidate}' not found in {year} election.[/red]")
+        console.print(f"[red]Candidate '{candidate}' not found in {year} election.[/red]")
+
+
+@app.command()
+def debug(
+    year: int = typer.Argument(2025, help="Election year (e.g., 2025)"),
+):
+    """Print the compiled system prompt for debugging."""
+    if year not in CANDIDATE_URLS:
+        console.print(f"[red]No candidate data for year {year}.[/red]")
+        console.print(f"[yellow]Available years:[/yellow] {', '.join(map(str, sorted(CANDIDATE_URLS.keys())))}")
+        raise typer.Exit(1)
+
+    statements = fetch_and_cache(
+        url=CANDIDATE_URLS[year],
+        cache_file=f"dsf-candidates-{year}.md",
+    )
+
+    console.print("[bold cyan]===== SYSTEM PROMPT =====[/bold cyan]\n")
+    console.print(SYSTEM_PROMPT)
+    console.print("\n[bold cyan]===== INSTRUCTIONS =====[/bold cyan]\n")
+    console.print(f"<election_year>{year}</election_year>")
+    console.print(f"\n<candidate_statements_page>\n\n{statements}\n\n</candidate_statements_page>")
+    console.print("\n[bold cyan]=========================[/bold cyan]")
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    app()

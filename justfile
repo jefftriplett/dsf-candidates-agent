@@ -7,12 +7,12 @@ export JUST_UNSTABLE := "true"
     just --list
 
 # Look up a DSF Board candidate's statement
-@agent YEAR CANDIDATE *OPTS:
-    uv --quiet run src/agent.py {{ YEAR }} "{{ CANDIDATE }}" {{ OPTS }}
-
-# Alias for agent
 @ask YEAR CANDIDATE *OPTS:
-    just agent {{ YEAR }} "{{ CANDIDATE }}" {{ OPTS }}
+    uv --quiet run src/agent.py ask {{ YEAR }} "{{ CANDIDATE }}" {{ OPTS }}
+
+# Print the compiled system prompt for debugging
+@debug YEAR="2025":
+    uv --quiet run src/agent.py debug {{ YEAR }}
 
 # Install pip and uv package management tools
 @bootstrap *ARGS:
@@ -24,14 +24,14 @@ export JUST_UNSTABLE := "true"
 
 # Rebuild all candidate statements
 @rebuild-all:
-    just agent 2025 "Priya Pahwa"
-    just agent 2025 "Tom Carrick"
-    just agent 2025 "Abigail Afi Gbadago"
-    just agent 2025 "Jeff Triplett"
-    just agent 2025 "Paolo Melchiorre"
-    just agent 2026 "Priya Pahwa"
-    just agent 2026 "Ryan Cheley"
-    just agent 2026 "Jacob Kaplan-Moss"
+    just ask 2025 "Priya Pahwa"
+    just ask 2025 "Tom Carrick"
+    just ask 2025 "Abigail Afi Gbadago"
+    just ask 2025 "Jeff Triplett"
+    just ask 2025 "Paolo Melchiorre"
+    just ask 2026 "Priya Pahwa"
+    just ask 2026 "Ryan Cheley"
+    just ask 2026 "Jacob Kaplan-Moss"
 
 # Format code using just's built-in formatter
 @fmt:
