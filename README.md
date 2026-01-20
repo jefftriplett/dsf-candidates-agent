@@ -12,7 +12,7 @@ just agent 2025 "Jeff Triplett"
 just ask 2026 "Paolo Melchiorre"
 
 # Direct script usage
-uv run agent.py 2025 "Jacob Kaplan-Moss"
+uv run src/agent.py 2025 "Jacob Kaplan-Moss"
 ```
 
 ## Available Election Years
