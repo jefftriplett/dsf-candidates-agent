@@ -8,7 +8,7 @@ export JUST_UNSTABLE := "true"
 
 # Look up a DSF Board candidate's statement
 @agent YEAR CANDIDATE *OPTS:
-    uv --quiet run agent.py {{ YEAR }} "{{ CANDIDATE }}" {{ OPTS }}
+    uv --quiet run src/agent.py {{ YEAR }} "{{ CANDIDATE }}" {{ OPTS }}
 
 # Alias for agent
 @ask YEAR CANDIDATE *OPTS:
