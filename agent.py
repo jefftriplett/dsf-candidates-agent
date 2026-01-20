@@ -51,15 +51,6 @@ Your job is to extract and return a specific candidate's statement from the prov
 - Be accurate and return the statement verbatim.
 
 </behavior_guidelines>
-
-<election_year>{year}</election_year>
-
-<candidate_statements_page>
-
-{candidate_statements}
-
-</candidate_statements_page>
-
 """
 
 
@@ -99,13 +90,19 @@ def get_dsf_candidates_agent(year: int):
         cache_file=f"dsf-candidates-{year}.md",
     )
 
-    system_prompt = SYSTEM_PROMPT.format(year=year, candidate_statements=statements)
-
     agent = Agent(
         model=OPENAI_MODEL_NAME,
         output_type=Output,
-        system_prompt=system_prompt,
+        system_prompt=SYSTEM_PROMPT,
     )
+
+    @agent.instructions
+    def add_election_year() -> str:
+        return f"<election_year>{year}</election_year>"
+
+    @agent.instructions
+    def add_candidate_statements() -> str:
+        return f"<candidate_statements_page>\n\n{statements}\n\n</candidate_statements_page>"
 
     return agent
 
