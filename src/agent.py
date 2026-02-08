@@ -113,7 +113,10 @@ def slugify(text: str) -> str:
     return text.lower().replace(" ", "-")
 
 
-app = typer.Typer(help="DSF Candidates Agent - Look up DSF Board candidate statements")
+app = typer.Typer(
+    help="DSF Candidates Agent - Look up DSF Board candidate statements",
+    no_args_is_help=True,
+)
 
 
 @app.command()
