@@ -1,18 +1,17 @@
-# DSF Candidates Agent
+# DSF Candidates Agent (Unofficial)
 
 An AI-powered assistant for looking up Django Software Foundation (DSF) Board candidate statements.
+
+This is an unofficial tool and should not be used as official election advice.
 
 ## Usage
 
 ```shell
 # Look up a candidate's statement
-just agent 2025 "Jeff Triplett"
+just ask 2025 "Jeff Triplett"
 
-# Or use the ask alias
-just ask 2026 "Paolo Melchiorre"
-
-# Direct script usage
-uv run src/agent.py 2025 "Jacob Kaplan-Moss"
+# Or use uv directly
+uv run src/agent.py ask 2025 "Jeff Triplett"
 ```
 
 ## Available Election Years
@@ -21,6 +20,24 @@ uv run src/agent.py 2025 "Jacob Kaplan-Moss"
 - 2025
 - 2024
 - 2023
+
+## Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `just` | List all available commands |
+| `just ask <year> "<candidate>"` | Look up a candidate's statement |
+| `just debug [year]` | Print the compiled system prompt for debugging (default: 2025) |
+| `just demo` | Run a demo looking up Jeff Triplett's 2025 statement |
+| `just rebuild-all` | Fetch statements for multiple candidates |
+| `just bootstrap` | Install pip and uv |
+| `just fmt` | Format code |
+| `just lint` | Run pre-commit hooks on all files |
+| `just lint-autoupdate` | Update pre-commit hooks to latest versions |
+
+## How It Works
+
+The agent fetches candidate statements from the Django website using Jina.ai's reader API and caches them locally as markdown files. When you look up a candidate, it uses an LLM to extract their specific statement from the cached page.
 
 ## Requirements
 
@@ -32,11 +49,3 @@ uv run src/agent.py 2025 "Jacob Kaplan-Moss"
 ```shell
 just bootstrap
 ```
-
-## How It Works
-
-The agent fetches candidate statements from the Django website using Jina.ai's reader API and caches them locally as markdown files. When you look up a candidate, it uses an LLM to extract their specific statement from the cached page.
-
-## Disclaimer
-
-This is an unofficial tool and should not be used as official election advice.
