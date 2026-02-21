@@ -27,6 +27,7 @@ uv run src/agent.py ask 2025 "Jeff Triplett"
 |---------|-------------|
 | `just` | List all available commands |
 | `just ask <year> "<candidate>"` | Look up a candidate's statement |
+| `just web [year]` | Launch the agent as a web chat interface |
 | `just debug [year]` | Print the compiled system prompt for debugging (default: 2025) |
 | `just demo` | Run a demo looking up Jeff Triplett's 2025 statement |
 | `just rebuild-all` | Fetch statements for multiple candidates |
