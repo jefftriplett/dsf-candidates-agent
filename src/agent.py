@@ -5,6 +5,7 @@
 #     "httpx",
 #     "environs",
 #     "pydantic-ai-slim[openai]",
+#     "pydantic-ai-slim[web]",
 #     "rich",
 #     "typer",
 # ]
@@ -81,8 +82,8 @@ def fetch_and_cache(
     return contents
 
 
-def get_dsf_candidates_agent(year: int):
-    """Create the DSF candidates agent for a specific election year."""
+def load_data(year: int):
+    """Load candidate statements for a specific election year."""
     if year not in CANDIDATE_URLS:
         raise ValueError(f"No candidate data for year {year}. Available years: {list(CANDIDATE_URLS.keys())}")
 
@@ -90,20 +91,26 @@ def get_dsf_candidates_agent(year: int):
         url=CANDIDATE_URLS[year],
         cache_file=f"dsf-candidates-{year}.md",
     )
+    return {"year": year, "statements": statements}
+
+
+def get_agent(year: int, *, output_type=Output):
+    """Create the DSF candidates agent for a specific election year."""
+    data = load_data(year)
 
     agent = Agent(
         model=OPENAI_MODEL_NAME,
-        output_type=Output,
+        output_type=output_type,
         system_prompt=SYSTEM_PROMPT,
     )
 
     @agent.instructions
     def add_election_year() -> str:
-        return f"<election_year>{year}</election_year>"
+        return f"<election_year>{data['year']}</election_year>"
 
     @agent.instructions
     def add_candidate_statements() -> str:
-        return f"<candidate_statements_page>\n\n{statements}\n\n</candidate_statements_page>"
+        return f"<candidate_statements_page>\n\n{data['statements']}\n\n</candidate_statements_page>"
 
     return agent
 
@@ -131,7 +138,7 @@ def ask(
         console.print(f"[yellow]Available years:[/yellow] {', '.join(map(str, sorted(CANDIDATE_URLS.keys())))}")
         raise typer.Exit(1)
 
-    agent = get_dsf_candidates_agent(year)
+    agent = get_agent(year)
 
     result = agent.run_sync(f"Find the candidate statement for: {candidate}")
 
@@ -148,6 +155,27 @@ def ask(
 
 
 @app.command()
+def web(
+    year: int = typer.Argument(2025, help="Election year (e.g., 2025)"),
+    host: str = "127.0.0.1",
+    port: int = 8080,
+):
+    """Launch the candidates agent as a web chat interface."""
+    import uvicorn
+
+    if year not in CANDIDATE_URLS:
+        console.print(f"[red]No candidate data for year {year}.[/red]")
+        console.print(f"[yellow]Available years:[/yellow] {', '.join(map(str, sorted(CANDIDATE_URLS.keys())))}")
+        raise typer.Exit(1)
+
+    agent = get_agent(year, output_type=None)
+    web_app = agent.to_web()
+
+    console.print(f"[bold green]Starting web interface at http://{host}:{port}[/bold green]")
+    uvicorn.run(web_app, host=host, port=port)
+
+
+@app.command()
 def debug(
     year: int = typer.Argument(2025, help="Election year (e.g., 2025)"),
 ):
@@ -157,16 +185,13 @@ def debug(
         console.print(f"[yellow]Available years:[/yellow] {', '.join(map(str, sorted(CANDIDATE_URLS.keys())))}")
         raise typer.Exit(1)
 
-    statements = fetch_and_cache(
-        url=CANDIDATE_URLS[year],
-        cache_file=f"dsf-candidates-{year}.md",
-    )
+    data = load_data(year)
 
     console.print("[bold cyan]===== SYSTEM PROMPT =====[/bold cyan]\n")
     console.print(SYSTEM_PROMPT)
     console.print("\n[bold cyan]===== INSTRUCTIONS =====[/bold cyan]\n")
-    console.print(f"<election_year>{year}</election_year>")
-    console.print(f"\n<candidate_statements_page>\n\n{statements}\n\n</candidate_statements_page>")
+    console.print(f"<election_year>{data['year']}</election_year>")
+    console.print(f"\n<candidate_statements_page>\n\n{data['statements']}\n\n</candidate_statements_page>")
     console.print("\n[bold cyan]=========================[/bold cyan]")
 
 
