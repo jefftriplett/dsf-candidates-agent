@@ -14,6 +14,7 @@
 
 import httpx
 import typer
+import uvicorn
 
 from environs import env
 from pathlib import Path
@@ -162,8 +163,6 @@ def web(
     port: int = 8080,
 ):
     """Launch the candidates agent as a web chat interface."""
-    import uvicorn
-
     if year not in CANDIDATE_URLS:
         console.print(f"[red]No candidate data for year {year}.[/red]")
         console.print(f"[yellow]Available years:[/yellow] {', '.join(map(str, sorted(CANDIDATE_URLS.keys())))}")
