@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
-#     "httpx",
+#     "httpx2",
 #     "environs",
 #     "pydantic-ai-slim[openai]>=2,<3",
 #     "rich",
@@ -11,7 +11,9 @@
 # ]
 # ///
 
-import httpx
+import time
+
+import httpx2
 import typer
 import uvicorn
 
@@ -26,6 +28,8 @@ console = Console()
 
 OPENAI_API_KEY: str = env.str("OPENAI_API_KEY")
 OPENAI_MODEL_NAME: str = env.str("OPENAI_MODEL_NAME", default="openai:gpt-5.4-nano")
+
+CACHE_MAX_AGE_HOURS: float = env.float("CACHE_MAX_AGE_HOURS", default=24.0)
 
 OUTPUT_DIR: Path = Path(__file__).parent / "statements"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -63,18 +67,34 @@ class Output(BaseModel):
     found: bool = Field(description="Whether the candidate was found in the election year")
 
 
+def cache_is_fresh(filename: Path, max_age_hours: float) -> bool:
+    """Return True if the cache file exists and is younger than max_age_hours."""
+    if not filename.exists() or max_age_hours <= 0:
+        return False
+
+    return (time.time() - filename.stat().st_mtime) < (max_age_hours * 3600)
+
+
 def fetch_and_cache(
     *,
     url: str,
     cache_file: str,
     timeout: float = 10.0,
+    max_age_hours: float = CACHE_MAX_AGE_HOURS,
+    refresh: bool = False,
 ):
-    filename = OUTPUT_DIR / cache_file
-    if filename.exists():
+    filename = Path(OUTPUT_DIR, cache_file)
+    if not refresh and cache_is_fresh(filename, max_age_hours):
         return filename.read_text()
 
-    response = httpx.get(f"https://r.jina.ai/{url}", timeout=timeout)
-    response.raise_for_status()
+    try:
+        response = httpx2.get(f"https://r.jina.ai/{url}", timeout=timeout, follow_redirects=True)
+        response.raise_for_status()
+    except httpx2.HTTPError as exc:
+        if filename.exists():
+            console.print(f"[yellow]Could not refresh {filename}: {exc}. Using the cached copy.[/yellow]")
+            return filename.read_text()
+        raise
 
     contents = response.text
 
@@ -83,7 +103,7 @@ def fetch_and_cache(
     return contents
 
 
-def load_data(year: int):
+def load_data(year: int, *, refresh: bool = False):
     """Load candidate statements for a specific election year."""
     if year not in CANDIDATE_URLS:
         raise ValueError(f"No candidate data for year {year}. Available years: {list(CANDIDATE_URLS.keys())}")
@@ -91,13 +111,14 @@ def load_data(year: int):
     statements = fetch_and_cache(
         url=CANDIDATE_URLS[year],
         cache_file=f"dsf-candidates-{year}.md",
+        refresh=refresh,
     )
     return {"year": year, "statements": statements}
 
 
-def get_agent(year: int, *, output_type=Output):
+def get_agent(year: int, *, output_type=Output, refresh: bool = False):
     """Create the DSF candidates agent for a specific election year."""
-    data = load_data(year)
+    data = load_data(year, refresh=refresh)
 
     agent = Agent(
         model=OPENAI_MODEL_NAME,
@@ -132,6 +153,7 @@ def ask(
     year: int = typer.Argument(..., help="Election year (e.g., 2025)"),
     candidate: str = typer.Argument(..., help="Candidate name to look up"),
     save: bool = typer.Option(True, "--save/--no-save", help="Save statement to disk"),
+    refresh: bool = typer.Option(False, help="Re-fetch the candidate statements, ignoring the cache."),
 ):
     """Look up a DSF Board candidate's statement by year and name."""
     if year not in CANDIDATE_URLS:
@@ -139,7 +161,7 @@ def ask(
         console.print(f"[yellow]Available years:[/yellow] {', '.join(map(str, sorted(CANDIDATE_URLS.keys())))}")
         raise typer.Exit(1)
 
-    agent = get_agent(year)
+    agent = get_agent(year, refresh=refresh)
 
     result = agent.run_sync(f"Find the candidate statement for: {candidate}")
 
@@ -160,6 +182,7 @@ def web(
     year: int = typer.Argument(2025, help="Election year (e.g., 2025)"),
     host: str = "127.0.0.1",
     port: int = 8080,
+    refresh: bool = typer.Option(False, help="Re-fetch the candidate statements, ignoring the cache."),
 ):
     """Launch the candidates agent as a web chat interface."""
     if year not in CANDIDATE_URLS:
@@ -167,7 +190,7 @@ def web(
         console.print(f"[yellow]Available years:[/yellow] {', '.join(map(str, sorted(CANDIDATE_URLS.keys())))}")
         raise typer.Exit(1)
 
-    agent = get_agent(year, output_type=None)
+    agent = get_agent(year, output_type=None, refresh=refresh)
     web_app = agent.to_web()
 
     console.print(f"[bold green]Starting web interface at http://{host}:{port}[/bold green]")
@@ -177,6 +200,7 @@ def web(
 @app.command()
 def debug(
     year: int = typer.Argument(2025, help="Election year (e.g., 2025)"),
+    refresh: bool = typer.Option(False, help="Re-fetch the candidate statements, ignoring the cache."),
 ):
     """Print the compiled system prompt for debugging."""
     if year not in CANDIDATE_URLS:
@@ -184,7 +208,7 @@ def debug(
         console.print(f"[yellow]Available years:[/yellow] {', '.join(map(str, sorted(CANDIDATE_URLS.keys())))}")
         raise typer.Exit(1)
 
-    data = load_data(year)
+    data = load_data(year, refresh=refresh)
 
     console.print("[bold cyan]===== SYSTEM PROMPT =====[/bold cyan]\n")
     console.print(SYSTEM_PROMPT)
